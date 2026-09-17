@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import "./App.css";
 
-const API_BASE = "http://localhost:5000/api/recipe";
+const API_BASE = "/api/recipe";
 
 // Utility to format MongoDB ISO dates cleanly
 function formatRecipeDate(dateString) {
@@ -25,17 +25,17 @@ function formatRecipeForCopy(r) {
   parts.push(`🍳 ${r.name.toUpperCase()}`);
   if (r.description) parts.push(`\n${r.description}`);
   parts.push(`\n⏱️ Prep: ${r.prepTime || "N/A"} | Cook: ${r.cookTime || "N/A"} | Servings: ${r.servings || "N/A"} | Difficulty: ${r.difficulty || "N/A"}`);
-  
+
   if (r.ingredients?.length) {
     parts.push("\n🛒 INGREDIENTS:");
     r.ingredients.forEach((ing) => parts.push(`  • ${ing}`));
   }
-  
+
   if (r.instructions?.length) {
     parts.push("\n👨‍🍳 INSTRUCTIONS:");
     r.instructions.forEach((step, idx) => parts.push(`  ${idx + 1}. ${step}`));
   }
-  
+
   if (r.tips?.length) {
     parts.push("\n💡 CHEF'S TIPS:");
     r.tips.forEach((tip) => parts.push(`  • ${tip}`));
