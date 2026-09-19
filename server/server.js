@@ -10,6 +10,21 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Ensure database is connected before handling any API request (crucial for Vercel serverless functions)
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error("Database connection middleware error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Database connection failed. Please check MongoDB Atlas connection & environment variables.",
+      error: error.message,
+    });
+  }
+});
+
 const recipeRoutes = require("./recipeRoutes");
 
 app.use("/api/recipe", recipeRoutes);
@@ -34,9 +49,8 @@ async function startServer() {
   }
 }
 
-if (process.env.VERCEL) {
-  connectDB();
-} else {
+// In local environment, listen on PORT. In Vercel serverless, Vercel invokes app directly.
+if (!process.env.VERCEL) {
   startServer();
 }
 
