@@ -35,10 +35,6 @@ router.post("/", async (req, res) => {
       });
     }
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-3.6-flash",
-    });
-
     const prompt = `
 You are a professional recipe assistant.
 
@@ -71,8 +67,41 @@ Do not put the JSON inside code fences.
 Make the recipe suitable for home cooking.
 `;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text().trim();
+    // Candidate models in order of preference
+    const candidateModels = ["gemini-3.6-flash", "gemini-3.5-flash"];
+    let text = null;
+    let lastError = null;
+
+    for (const modelName of candidateModels) {
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const model = genAI.getGenerativeModel({ model: modelName });
+          const result = await model.generateContent(prompt);
+          text = result.response.text().trim();
+          break;
+        } catch (genError) {
+          lastError = genError;
+          console.warn(
+            `Attempt ${attempt} on ${modelName} failed: ${genError.message}`
+          );
+          // If 503 (high demand) or 429 (rate limit), wait 1.5s before retry
+          const isTemporary =
+            genError.message?.includes("503") ||
+            genError.message?.includes("429") ||
+            genError.message?.includes("high demand");
+          if (isTemporary && attempt < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+          } else {
+            break; // Switch to next candidate model
+          }
+        }
+      }
+      if (text) break;
+    }
+
+    if (!text) {
+      throw lastError || new Error("All AI models are currently unavailable.");
+    }
 
     let recipe;
 
@@ -97,9 +126,15 @@ Make the recipe suitable for home cooking.
   } catch (error) {
     console.error("Recipe generation error:", error.message);
 
-    res.status(500).json({
+    const isHighDemand =
+      error.message?.includes("503") || error.message?.includes("high demand");
+
+    res.status(isHighDemand ? 503 : 500).json({
       success: false,
-      message: "Unable to generate recipe right now.",
+      message: isHighDemand
+        ? "AI service is currently experiencing high demand. Please wait a few seconds and try again."
+        : "Unable to generate recipe right now.",
+      error: error.message,
     });
   }
 });
